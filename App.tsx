@@ -1,11 +1,10 @@
-
-// Fixed the corrupted import statement and removed redundant local type declarations that were causing conflicts
 import React, { useState, useEffect, useMemo } from 'react';
 import Header from './components/Header';
 import Scorecard from './components/Scorecard';
 import ModeSwitcher from './components/ModeSwitcher';
 import GPAMode from './components/GPAMode';
 import CGPAMode from './components/CGPAMode';
+import DownloadPDF from './components/DownloadPDF';
 import Footer from './components/Footer';
 import { Mode, AppState, Grade } from './types';
 import { INITIAL_SEMESTERS, GRADE_POINTS } from './constants';
@@ -28,7 +27,7 @@ const App: React.FC = () => {
     const defaultState: AppState = {
       mode: Mode.GPA,
       semesters: INITIAL_SEMESTERS,
-      activeSemesterId: '1.1'
+      activeSemesterId: '' // No semester selected by default
     };
 
     try {
@@ -37,7 +36,7 @@ const App: React.FC = () => {
       
       if (saved && savedVersion === APP_VERSION) {
         const parsed = JSON.parse(saved);
-        if (parsed && Array.isArray(parsed.semesters) && parsed.activeSemesterId) {
+        if (parsed && Array.isArray(parsed.semesters)) {
           return parsed;
         }
       }
@@ -98,6 +97,13 @@ const App: React.FC = () => {
     }));
   };
 
+  const resetAllManual = () => {
+    setState(prev => ({
+      ...prev,
+      semesters: prev.semesters.map(s => ({ ...s, manualGPA: 0 }))
+    }));
+  };
+
   const stats = useMemo(() => {
     if (state.mode === Mode.GPA) {
       const active = state.semesters.find(s => s.id === state.activeSemesterId);
@@ -146,6 +152,12 @@ const App: React.FC = () => {
     }
   }, [state]);
 
+  const scorecardLabel = useMemo(() => {
+    if (state.mode === Mode.CGPA) return 'OVERALL CGPA';
+    if (!state.activeSemesterId) return 'SEMESTER GPA';
+    return `SEMESTER ${state.activeSemesterId} GPA`;
+  }, [state.mode, state.activeSemesterId]);
+
   return (
     <div className="min-h-screen flex flex-col transition-colors duration-300 selection:bg-[#0d8181] selection:text-white">
       <Header 
@@ -155,7 +167,7 @@ const App: React.FC = () => {
       
       <main className="flex-grow max-w-4xl w-full mx-auto px-4 pt-4 pb-2 sm:py-8">
         <Scorecard 
-          label={state.mode === Mode.GPA ? `SEMESTER ${state.activeSemesterId} GPA` : 'OVERALL CGPA'}
+          label={scorecardLabel}
           score={stats.score}
           offered={stats.offered}
           secured={stats.secured}
@@ -181,9 +193,17 @@ const App: React.FC = () => {
             <CGPAMode 
               semesters={state.semesters}
               updateManual={updateManual}
+              resetAllManual={resetAllManual}
             />
           )}
         </div>
+
+        <DownloadPDF 
+          mode={state.mode}
+          activeSemesterId={state.activeSemesterId}
+          semesters={state.semesters}
+          stats={stats}
+        />
 
         <Footer />
       </main>

@@ -1,29 +1,32 @@
-
-import React from 'react';
+import React, { useState } from 'react';
 import { Semester } from '../types';
 
 interface CGPAModeProps {
   semesters: Semester[];
   updateManual: (id: string, credits: number, gpa: number) => void;
+  resetAllManual: () => void;
 }
 
-const CGPAMode: React.FC<CGPAModeProps> = ({ semesters, updateManual }) => {
+const CGPAMode: React.FC<CGPAModeProps> = ({ semesters, updateManual, resetAllManual }) => {
+  const [showModal, setShowModal] = useState(false);
+
+  const confirmResetAll = () => {
+    resetAllManual();
+    setShowModal(false);
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, index: number) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      // Find the parent container that holds all semester item cards
       const container = e.currentTarget.closest('.space-y-3');
       if (container) {
-        // Query all number inputs within this container
         const allInputs = Array.from(container.querySelectorAll('input[type="number"]')) as HTMLInputElement[];
         const nextInput = allInputs[index + 1];
         
         if (nextInput) {
           nextInput.focus();
-          // Select text on focus for easier overwriting
           nextInput.select();
         } else {
-          // If it's the last input, just blur
           e.currentTarget.blur();
         }
       }
@@ -32,6 +35,44 @@ const CGPAMode: React.FC<CGPAModeProps> = ({ semesters, updateManual }) => {
 
   return (
     <div className="pb-4">
+      {/* Reset Confirmation Modal */}
+      {showModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div 
+            className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+            onClick={() => setShowModal(false)}
+          />
+          <div className="relative bg-white dark:bg-slate-800 rounded-[2rem] p-8 shadow-2xl max-w-sm w-full border border-slate-100 dark:border-slate-700 animate-in zoom-in-95 slide-in-from-bottom-4 duration-300">
+            <div className="flex flex-col items-center text-center">
+              <div className="w-16 h-16 bg-rose-50 dark:bg-rose-900/20 rounded-2xl flex items-center justify-center mb-4 text-rose-500">
+                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100 mb-2">Reset All Data?</h3>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mb-8 leading-relaxed">
+                This will clear GPA entries for <span className="font-bold text-slate-700 dark:text-slate-200">all semesters</span>. This action cannot be undone.
+              </p>
+              
+              <div className="grid grid-cols-2 gap-3 w-full">
+                <button
+                  onClick={() => setShowModal(false)}
+                  className="py-3.5 rounded-2xl font-bold text-sm bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300 transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmResetAll}
+                  className="py-3.5 rounded-2xl font-bold text-sm bg-rose-500 hover:bg-rose-600 text-white shadow-lg shadow-rose-500/20 transition-all active:scale-95"
+                >
+                  Confirm Reset
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Main Container Card */}
       <div className="bg-white dark:bg-slate-800 rounded-3xl p-4 sm:p-6 shadow-sm border border-slate-100 dark:border-slate-700">
         <h3 className="text-lg font-bold text-[#104e5b] dark:text-slate-100 mb-6 flex items-center gap-2">
@@ -59,7 +100,7 @@ const CGPAMode: React.FC<CGPAModeProps> = ({ semesters, updateManual }) => {
                   </div>
                 </div>
 
-                {/* Right Side: Slim GPA Input Pill */}
+                {/* Right Side: GPA Input */}
                 <div className="flex items-center">
                   <div className="flex items-center bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 sm:py-2.5 transition-all focus-within:border-[#0d8181] shadow-sm">
                     <input
@@ -78,6 +119,21 @@ const CGPAMode: React.FC<CGPAModeProps> = ({ semesters, updateManual }) => {
               </div>
             );
           })}
+        </div>
+
+        {/* Reset All Button at the bottom */}
+        <div className="mt-8 flex justify-center">
+          <button
+            onClick={() => setShowModal(true)}
+            className="group flex items-center gap-3 px-12 py-4 rounded-2xl font-bold text-sm bg-rose-500 hover:bg-rose-600 text-white shadow-xl shadow-rose-500/30 dark:bg-rose-600 dark:hover:bg-rose-500 transition-all duration-300 active:scale-95"
+          >
+            <div className="transition-transform duration-300 group-hover:rotate-12">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </div>
+            Reset All
+          </button>
         </div>
       </div>
     </div>

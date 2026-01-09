@@ -1,11 +1,12 @@
-
-import React, { useMemo, useState } from 'react';
+import React, { useState, useMemo } from 'react';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { Semester, Mode } from '../types';
 import { GRADE_POINTS } from '../constants';
 
 interface DownloadPDFProps {
   mode: Mode;
-  activeSemester?: Semester;
+  activeSemesterId: string;
   semesters: Semester[];
   stats: {
     score: string;
@@ -14,242 +15,200 @@ interface DownloadPDFProps {
   };
 }
 
-// Global declaration for html2pdf loaded via script tag
-declare var html2pdf: any;
-
-const DownloadPDF: React.FC<DownloadPDFProps> = ({ mode, activeSemester, semesters, stats }) => {
+const DownloadPDF: React.FC<DownloadPDFProps> = ({ mode, activeSemesterId, semesters, stats }) => {
   const [isDownloading, setIsDownloading] = useState(false);
-  
-  const handleDownload = async () => {
-    if (isDownloading) return;
+
+  const activeSemester = useMemo(() => 
+    semesters.find(s => s.id === activeSemesterId), 
+  [semesters, activeSemesterId]);
+
+  const canDownload = useMemo(() => {
+    // Disable if total credits is zero as per technical flow
+    if (stats.offered === 0) return false;
+    
+    if (mode === Mode.GPA) {
+      return !!activeSemester;
+    } else {
+      return semesters.some(s => (s.manualCredits || 0) > 0);
+    }
+  }, [mode, activeSemester, semesters, stats.offered]);
+
+  const generatePDF = async () => {
+    if (!canDownload) return;
     setIsDownloading(true);
 
-    const fileName = mode === Mode.GPA 
-      ? `GPA_Report_Semester_${activeSemester?.label || 'Result'}.pdf`
-      : 'CGPA_Summary_Report.pdf';
-
-    // Get the template element
-    const sourceElement = document.getElementById('pdf-template-container');
-    if (!sourceElement) {
-      setIsDownloading(false);
-      return;
-    }
-
-    // Create a clone to work with
-    const element = sourceElement.cloneNode(true) as HTMLElement;
-    element.style.display = 'block';
-    element.style.position = 'fixed';
-    element.style.left = '-10000px';
-    element.style.top = '0';
-    element.style.width = '800px';
-    element.style.opacity = '1';
-    element.style.visibility = 'visible';
-    element.style.zIndex = '-1';
-    
-    // Append to body temporarily so html2canvas can "see" it properly
-    document.body.appendChild(element);
-
-    const opt = {
-      margin: 0,
-      filename: fileName,
-      image: { type: 'jpeg', quality: 1.0 },
-      html2canvas: { 
-        scale: 2, 
-        useCORS: true, 
-        logging: false,
-        backgroundColor: '#ffffff',
-        width: 800,
-        height: element.offsetHeight || 1120, // Approx A4 height if zero
-        windowWidth: 800,
-        y: 0,
-        x: 0
-      },
-      jsPDF: { unit: 'px', format: [800, element.offsetHeight || 1120], orientation: 'portrait' }
-    };
-
     try {
-      // Give browser a moment to render the newly appended element
-      await new Promise(resolve => setTimeout(resolve, 300));
-      await html2pdf().from(element).set(opt).save();
-    } catch (err) {
-      console.error('PDF generation error:', err);
-    } finally {
-      // Cleanup
-      if (element.parentNode) {
-        document.body.removeChild(element);
+      const doc = new jsPDF({
+        orientation: 'portrait',
+        unit: 'pt',
+        format: 'a4'
+      });
+
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const margin = 40;
+      const primaryColor: [number, number, number] = [79, 70, 229]; // Indigo
+      const darkGrey = '#282828';
+      const mediumGrey = '#646464';
+      const lightGreyBG = [241, 245, 249];
+
+      // 1. Header Section
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(22);
+      doc.setTextColor(darkGrey);
+      doc.text('GPA Report', pageWidth / 2, 60, { align: 'center' });
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(12);
+      doc.setTextColor(mediumGrey);
+      doc.text('Department of Nutrition and Food Technology, JUST', pageWidth / 2, 80, { align: 'center' });
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(16);
+      doc.setTextColor(darkGrey);
+      const identifier = mode === Mode.GPA ? `Semester: ${activeSemester?.label}` : 'Overall Report';
+      doc.text(identifier, margin, 120);
+
+      // 2. Data Table
+      let tableData: any[][] = [];
+      let tableHeaders: string[] = [];
+      let columnStyles: any = {};
+
+      if (mode === Mode.GPA && activeSemester) {
+        tableHeaders = ['Course Code', 'Course Name', 'Credits', 'Grade', 'Points'];
+        // Show all courses including N/A ones as requested
+        tableData = activeSemester.courses.map(c => [
+          c.code,
+          c.title,
+          c.credits.toFixed(2),
+          c.grade || 'N/A',
+          (GRADE_POINTS[c.grade || ''] * c.credits).toFixed(2)
+        ]);
+        columnStyles = {
+          0: { cellWidth: 80 },
+          1: { cellWidth: 'auto' },
+          2: { halign: 'right', cellWidth: 60 },
+          3: { halign: 'center', cellWidth: 50 },
+          4: { halign: 'right', cellWidth: 60 }
+        };
+      } else {
+        tableHeaders = ['Semester', 'Credits', 'GPA', 'Points Secured'];
+        tableData = semesters
+          .filter(s => (s.manualCredits || 0) > 0)
+          .map(s => [
+            `Semester ${s.label}`,
+            (s.manualCredits || 0).toFixed(2),
+            (s.manualGPA || 0).toFixed(2),
+            ((s.manualCredits || 0) * (s.manualGPA || 0)).toFixed(2)
+          ]);
+        columnStyles = {
+          0: { cellWidth: 'auto' },
+          1: { halign: 'right', cellWidth: 80 },
+          2: { halign: 'right', cellWidth: 80 },
+          3: { halign: 'right', cellWidth: 100 }
+        };
       }
+
+      autoTable(doc, {
+        head: [tableHeaders],
+        body: tableData,
+        startY: 140,
+        theme: 'grid',
+        headStyles: {
+          fillColor: primaryColor,
+          textColor: [255, 255, 255],
+          fontSize: 10,
+          fontStyle: 'bold'
+        },
+        bodyStyles: {
+          fontSize: 10,
+          textColor: mediumGrey
+        },
+        columnStyles: columnStyles,
+        margin: { left: margin, right: margin }
+      });
+
+      // 3. Summary Box
+      const finalY = (doc as any).lastAutoTable.finalY || 150;
+      const boxY = finalY + 30;
+      const boxHeight = 80;
+      const boxWidth = pageWidth - (margin * 2);
+
+      // Draw Rounded Rect
+      doc.setFillColor(lightGreyBG[0], lightGreyBG[1], lightGreyBG[2]);
+      doc.roundedRect(margin, boxY, boxWidth, boxHeight, 10, 10, 'F');
+
+      // Left Side Totals
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      doc.setTextColor(mediumGrey);
+      
+      let totalPoints = 0;
+      if (mode === Mode.GPA && activeSemester) {
+        totalPoints = activeSemester.courses
+          .reduce((acc, c) => acc + (GRADE_POINTS[c.grade || ''] * c.credits), 0);
+      } else {
+        totalPoints = semesters.reduce((acc, s) => acc + ((s.manualCredits || 0) * (s.manualGPA || 0)), 0);
+      }
+
+      doc.text(`Total Credits: ${stats.offered.toFixed(2)}`, margin + 20, boxY + 35);
+      doc.text(`Total Points: ${totalPoints.toFixed(2)}`, margin + 20, boxY + 55);
+
+      // Right Side Score
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(12);
+      doc.text(mode === Mode.GPA ? 'GPA' : 'CGPA', margin + boxWidth - 100, boxY + 35, { align: 'right' });
+      
+      doc.setFontSize(28);
+      doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+      doc.text(stats.score, margin + boxWidth - 20, boxY + 55, { align: 'right' });
+
+      // 4. Footer & Pagination
+      const pageCount = (doc as any).internal.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(10);
+        doc.setTextColor(150, 150, 150); // Light Grey
+        doc.text('Generated by JUST Nutrition Calculator', margin, doc.internal.pageSize.getHeight() - 20);
+        doc.text(`Page ${i} of ${pageCount}`, pageWidth - margin, doc.internal.pageSize.getHeight() - 20, { align: 'right' });
+      }
+
+      doc.save(mode === Mode.GPA ? `GPA_Semester_${activeSemester?.label}.pdf` : 'Overall_CGPA_Report.pdf');
+    } catch (error) {
+      console.error('PDF Generation failed', error);
+    } finally {
       setIsDownloading(false);
     }
   };
 
-  const isActive = useMemo(() => {
-    if (mode === Mode.GPA) {
-      return activeSemester?.courses.some(c => c.grade !== '') || false;
-    } else {
-      return semesters.some(s => (s.manualCredits || 0) > 0 && (s.manualGPA || 0) > 0);
-    }
-  }, [mode, activeSemester, semesters]);
-
-  const summary = useMemo(() => {
-    if (mode === Mode.GPA && activeSemester) {
-      const attemptedCourses = activeSemester.courses.filter(c => c.grade !== '');
-      const creditAttempted = attemptedCourses.reduce((acc, c) => acc + c.credits, 0);
-      const pointsSecured = attemptedCourses.reduce((acc, c) => acc + (GRADE_POINTS[c.grade] * c.credits), 0);
-      
-      return {
-        offered: activeSemester.courses.reduce((acc, c) => acc + c.credits, 0).toFixed(2),
-        attempted: creditAttempted.toFixed(2),
-        secured: stats.secured.toFixed(2),
-        points: pointsSecured.toFixed(2),
-      };
-    }
-    return null;
-  }, [mode, activeSemester, stats.secured]);
-
   return (
-    <>
-      <div className="mt-8 mb-4 flex justify-center">
-        <button
-          onClick={handleDownload}
-          disabled={!isActive || isDownloading}
-          className={`flex items-center gap-3 px-10 py-4 font-bold text-sm rounded-2xl shadow-lg transition-all duration-300 active:scale-95 group ${
-            isActive && !isDownloading
-              ? 'bg-[#0d8181] hover:bg-[#0a6c6c] text-white shadow-teal-900/10 cursor-pointer' 
-              : 'bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-600 shadow-none cursor-not-allowed grayscale opacity-60'
-          }`}
-        >
-          {isDownloading ? (
-            <div className="flex items-center gap-2">
-              <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-              Downloading...
-            </div>
-          ) : (
-            <>
-              <svg className={`w-5 h-5 transition-transform ${isActive ? 'group-hover:-translate-y-0.5' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
-              </svg>
-              Download PDF
-            </>
-          )}
-        </button>
-      </div>
-
-      {/* 
-          Template used for PDF generation. 
-          It is kept in the DOM as a hidden "source" element.
-          During download, we clone it and ensure it's rendered by the browser.
-      */}
-      <div 
-        id="pdf-template-container"
-        style={{ 
-          display: 'none', 
-          width: '800px', 
-          background: 'white',
-          color: 'black',
-        }}
+    <div className="flex justify-center mt-6 mb-2">
+      <button
+        onClick={generatePDF}
+        disabled={!canDownload || isDownloading}
+        className={`group flex items-center gap-3 px-10 py-4 font-bold text-sm rounded-2xl shadow-lg transition-all duration-300 active:scale-95 ${
+          canDownload && !isDownloading
+            ? 'bg-[#4f46e5] hover:bg-[#4338ca] text-white shadow-indigo-900/10 cursor-pointer'
+            : 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-600 shadow-none cursor-not-allowed grayscale'
+        }`}
       >
-        <div style={{ padding: '60px', fontFamily: 'Inter, sans-serif', width: '800px', boxSizing: 'border-box' }}>
-          {/* Header */}
-          <div style={{ textAlign: 'center', marginBottom: '50px' }}>
-            <h1 style={{ fontSize: '48px', fontWeight: 500, color: '#1e293b', marginBottom: '10px', marginTop: 0 }}>GPA Report</h1>
-            <p style={{ fontSize: '20px', color: '#64748b', marginTop: 0 }}>Department of Nutrition and Food Technology</p>
+        {isDownloading ? (
+          <div className="flex items-center gap-2">
+            <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            Processing...
           </div>
-
-          {/* Semester Title */}
-          <div style={{ marginBottom: '32px', borderLeft: '4px solid #cbd5e1', paddingLeft: '16px' }}>
-            <h2 style={{ fontSize: '28px', fontWeight: 400, color: '#1e293b', margin: 0 }}>
-              {mode === Mode.GPA ? `Semester: ${activeSemester?.label}` : 'CGPA Summary Report'}
-            </h2>
-          </div>
-
-          {/* Results Table */}
-          <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '20px' }}>
-            <thead>
-              <tr style={{ backgroundColor: '#4a3aff', color: 'white' }}>
-                <th style={{ padding: '16px', textAlign: 'left', fontWeight: 'bold', fontSize: '14px', color: 'white' }}>Course Code</th>
-                <th style={{ padding: '16px', textAlign: 'left', fontWeight: 'bold', fontSize: '14px', color: 'white' }}>Course Name</th>
-                <th style={{ padding: '16px', textAlign: 'center', fontWeight: 'bold', fontSize: '14px', color: 'white' }}>Credits</th>
-                <th style={{ padding: '16px', textAlign: 'center', fontWeight: 'bold', fontSize: '14px', color: 'white' }}>Grade</th>
-                <th style={{ padding: '16px', textAlign: 'center', fontWeight: 'bold', fontSize: '14px', color: 'white' }}>Points</th>
-              </tr>
-            </thead>
-            <tbody>
-              {mode === Mode.GPA && activeSemester?.courses.map((course) => (
-                <tr key={course.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                  <td style={{ padding: '16px', color: '#64748b', fontSize: '13px' }}>{course.code}</td>
-                  <td style={{ padding: '16px', color: '#475569', fontSize: '13px' }}>{course.title}</td>
-                  <td style={{ padding: '16px', textAlign: 'center', color: '#475569', fontSize: '13px' }}>{course.credits}</td>
-                  <td style={{ padding: '16px', textAlign: 'center', fontWeight: 'bold', color: '#1e293b', fontSize: '13px' }}>{course.grade || 'N/A'}</td>
-                  <td style={{ padding: '16px', textAlign: 'center', color: '#64748b', fontSize: '13px' }}>
-                    {course.grade ? (GRADE_POINTS[course.grade] * course.credits).toFixed(2) : 'N/A'}
-                  </td>
-                </tr>
-              ))}
-              {mode === Mode.CGPA && semesters.filter(s => (s.manualCredits || 0) > 0).map((s) => (
-                <tr key={s.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                  <td style={{ padding: '16px', color: '#1e293b', fontWeight: 'bold', fontSize: '13px' }}>Semester {s.label}</td>
-                  <td style={{ padding: '16px', color: '#94a3b8', fontStyle: 'italic', fontSize: '13px' }}>Overall Semester Summary</td>
-                  <td style={{ padding: '16px', textAlign: 'center', color: '#475569', fontSize: '13px' }}>{s.manualCredits}</td>
-                  <td style={{ padding: '16px', textAlign: 'center', fontWeight: 'bold', color: '#1e293b', fontSize: '13px' }}>{s.manualGPA?.toFixed(2)}</td>
-                  <td style={{ padding: '16px', textAlign: 'center', color: '#475569', fontSize: '13px' }}>{(s.manualCredits! * s.manualGPA!).toFixed(2)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-
-          {/* Summary Card */}
-          <div style={{ backgroundColor: '#f1f5f9', borderRadius: '20px', padding: '40px', marginTop: '50px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {summary ? (
-                <>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', width: '250px' }}>
-                    <span style={{ color: '#64748b' }}>Credit Offered:</span>
-                    <span style={{ fontWeight: 'bold', color: '#1e293b' }}>{summary.offered}</span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', width: '250px' }}>
-                    <span style={{ color: '#64748b' }}>Credit Attempted:</span>
-                    <span style={{ fontWeight: 'bold', color: '#1e293b' }}>{summary.attempted}</span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', width: '250px' }}>
-                    <span style={{ color: '#64748b' }}>Credit Secured:</span>
-                    <span style={{ fontWeight: 'bold', color: '#1e293b' }}>{summary.secured}</span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', width: '250px' }}>
-                    <span style={{ color: '#64748b' }}>Points Secured:</span>
-                    <span style={{ fontWeight: 'bold', color: '#1e293b' }}>{summary.points}</span>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', width: '250px' }}>
-                    <span style={{ color: '#64748b' }}>Total Credits:</span>
-                    <span style={{ fontWeight: 'bold', color: '#1e293b' }}>{stats.offered.toFixed(2)}</span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', width: '250px' }}>
-                    <span style={{ color: '#64748b' }}>Semesters Counted:</span>
-                    <span style={{ fontWeight: 'bold', color: '#1e293b' }}>{stats.secured}</span>
-                  </div>
-                </>
-              )}
-            </div>
-
-            <div style={{ textAlign: 'right' }}>
-              <span style={{ color: '#64748b', fontWeight: 'bold', fontSize: '18px', textTransform: 'uppercase', display: 'block' }}>{mode}</span>
-              <span style={{ color: '#4a3aff', fontSize: '72px', fontWeight: 800, lineHeight: 1 }}>{stats.score}</span>
-            </div>
-          </div>
-
-          {/* Footer Info */}
-          <div style={{ marginTop: '80px', paddingTop: '30px', borderTop: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', color: '#94a3b8', fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-            <span>Generated by JUST Nutrition Calculator</span>
-            <span>Ref: NFT-PDF-GEN-VERIFIED</span>
-          </div>
-        </div>
-      </div>
-    </>
+        ) : (
+          <>
+            <svg className={`w-5 h-5 transition-transform ${canDownload ? 'group-hover:-translate-y-0.5' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
+            </svg>
+            Download PDF Report
+          </>
+        )}
+      </button>
+    </div>
   );
 };
 

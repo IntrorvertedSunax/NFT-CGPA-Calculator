@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Semester, Grade } from '../types';
 import { GRADE_POINTS } from '../constants';
@@ -30,7 +29,7 @@ const GPAMode: React.FC<GPAModeProps> = ({ semesters, activeId, setActiveId, upd
             className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
             onClick={() => setShowModal(false)}
           />
-          <div className="relative bg-white dark:bg-slate-800 rounded-[2rem] p-8 shadow-2xl max-w-sm w-full border border-slate-100 dark:border-slate-700 animate-in zoom-in-95 slide-in-from-bottom-4 duration-300">
+          <div className="relative bg-white dark:bg-slate-800 rounded-[2rem] p-8 shadow-2xl max-sm w-full border border-slate-100 dark:border-slate-700 animate-in zoom-in-95 slide-in-from-bottom-4 duration-300">
             <div className="flex flex-col items-center text-center">
               <div className="w-16 h-16 bg-rose-50 dark:bg-rose-900/20 rounded-2xl flex items-center justify-center mb-4 text-rose-500">
                 <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -92,8 +91,17 @@ const GPAMode: React.FC<GPAModeProps> = ({ semesters, activeId, setActiveId, upd
         {/* Divider */}
         <div className="h-px w-full bg-slate-100 dark:bg-slate-700 mb-8" />
         
-        {/* Course Grade Selection Section */}
-        {activeSemester && activeSemester.courses.length > 0 ? (
+        {/* Content Area */}
+        {!activeId ? (
+          /* Placeholder when no semester is selected */
+          <div className="flex-grow flex flex-col items-center justify-center text-center p-12 py-16">
+            <h4 className="text-xl font-bold text-slate-800 dark:text-slate-100 mb-2">Select a Semester</h4>
+            <p className="text-slate-500 dark:text-slate-400 max-w-[240px] leading-relaxed">
+              Pick a semester from the grid above to start entering your grades.
+            </p>
+          </div>
+        ) : activeSemester && activeSemester.courses.length > 0 ? (
+          /* Course List when a semester is selected */
           <>
             <div className="space-y-4 flex-grow">
               {activeSemester.courses.map((course) => (
@@ -124,7 +132,7 @@ const GPAMode: React.FC<GPAModeProps> = ({ semesters, activeId, setActiveId, upd
                       <option value="">N/A</option>
                       {grades.map(g => (
                         <option key={g} value={g}>
-                          {g} ({GRADE_POINTS[g].toFixed(2)})
+                          {g} {g === 'F' ? '(Retake)' : `(${GRADE_POINTS[g].toFixed(2)})`}
                         </option>
                       ))}
                     </select>
@@ -138,14 +146,14 @@ const GPAMode: React.FC<GPAModeProps> = ({ semesters, activeId, setActiveId, upd
               ))}
             </div>
 
-            {/* Reset Button */}
+            {/* Reset Button (Prominent and normal style) */}
             <div className="mt-8 flex justify-center">
               <button
                 onClick={() => setShowModal(true)}
-                className="group flex items-center gap-2 px-8 py-3 rounded-2xl font-bold text-sm bg-slate-50 border-2 border-slate-100 text-slate-400 hover:text-rose-500 hover:border-rose-100 hover:bg-rose-50/50 dark:bg-slate-900/30 dark:border-slate-800 dark:hover:bg-rose-900/10 transition-all duration-300"
+                className="group flex items-center gap-3 px-12 py-4 rounded-2xl font-bold text-sm bg-rose-500 hover:bg-rose-600 text-white shadow-xl shadow-rose-500/30 dark:bg-rose-600 dark:hover:bg-rose-500 transition-all duration-300 active:scale-95"
               >
                 <div className="transition-transform duration-300 group-hover:rotate-12">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                   </svg>
                 </div>
@@ -154,6 +162,7 @@ const GPAMode: React.FC<GPAModeProps> = ({ semesters, activeId, setActiveId, upd
             </div>
           </>
         ) : (
+          /* Fallback when a semester is selected but has no courses */
           <div className="flex-grow flex flex-col items-center justify-center text-center p-12">
             <div className="w-16 h-16 bg-slate-50 dark:bg-slate-900 rounded-2xl flex items-center justify-center mb-4 text-slate-300 dark:text-slate-700">
               <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">

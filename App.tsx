@@ -9,53 +9,51 @@ import Footer from './components/Footer';
 import { Mode, AppState, Grade } from './types';
 import { INITIAL_SEMESTERS, GRADE_POINTS } from './constants';
 
-const APP_VERSION = "1.0.2"; // Incremented to force update to the new curriculum
+const APP_VERSION = "1.0.2";
 
 const App: React.FC = () => {
   const [darkMode, setDarkMode] = useState(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('theme');
-      if (saved) return saved === 'dark';
-      return window.matchMedia('(prefers-color-scheme: dark)').matches;
-    }
+    try {
+      if (typeof window !== 'undefined') {
+        const saved = localStorage.getItem('theme');
+        if (saved) return saved === 'dark';
+        return window.matchMedia('(prefers-color-scheme: dark)').matches;
+      }
+    } catch (e) { return false; }
     return false;
   });
 
   const [state, setState] = useState<AppState>(() => {
-    const saved = localStorage.getItem('cgpa_calc_state');
-    const savedVersion = localStorage.getItem('cgpa_calc_version');
-    
-    // Default initial state
     const defaultState: AppState = {
       mode: Mode.GPA,
       semesters: INITIAL_SEMESTERS,
       activeSemesterId: '1.1'
     };
 
-    if (saved && savedVersion === APP_VERSION) {
-      try {
+    try {
+      const saved = localStorage.getItem('cgpa_calc_state');
+      const savedVersion = localStorage.getItem('cgpa_calc_version');
+      
+      if (saved && savedVersion === APP_VERSION) {
         const parsed = JSON.parse(saved);
-        // Ensure structure is valid before returning
-        if (parsed.semesters && parsed.activeSemesterId) {
+        if (parsed && Array.isArray(parsed.semesters) && parsed.activeSemesterId) {
           return parsed;
         }
-      } catch (e) {
-        console.error("Failed to parse saved state", e);
       }
+    } catch (e) {
+      console.warn("State restoration failed, using defaults.");
     }
     
-    // Clear storage if version mismatch to avoid curriculum conflicts
-    localStorage.removeItem('cgpa_calc_state');
     return defaultState;
   });
 
-  // Persist state and version
   useEffect(() => {
-    localStorage.setItem('cgpa_calc_state', JSON.stringify(state));
-    localStorage.setItem('cgpa_calc_version', APP_VERSION);
+    try {
+      localStorage.setItem('cgpa_calc_state', JSON.stringify(state));
+      localStorage.setItem('cgpa_calc_version', APP_VERSION);
+    } catch (e) { /* Storage full or private mode */ }
   }, [state]);
 
-  // Persist theme
   useEffect(() => {
     if (darkMode) {
       document.documentElement.classList.add('dark');

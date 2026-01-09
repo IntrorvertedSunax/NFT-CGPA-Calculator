@@ -6,37 +6,53 @@ import ModeSwitcher from './components/ModeSwitcher';
 import GPAMode from './components/GPAMode';
 import CGPAMode from './components/CGPAMode';
 import Footer from './components/Footer';
-import { Mode, AppState, Grade, Semester } from './types';
+import { Mode, AppState, Grade } from './types';
 import { INITIAL_SEMESTERS, GRADE_POINTS } from './constants';
+
+const APP_VERSION = "1.0.2"; // Incremented to force update to the new curriculum
 
 const App: React.FC = () => {
   const [darkMode, setDarkMode] = useState(() => {
     if (typeof window !== 'undefined') {
-      return localStorage.getItem('theme') === 'dark' || 
-             (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      const saved = localStorage.getItem('theme');
+      if (saved) return saved === 'dark';
+      return window.matchMedia('(prefers-color-scheme: dark)').matches;
     }
     return false;
   });
 
   const [state, setState] = useState<AppState>(() => {
     const saved = localStorage.getItem('cgpa_calc_state');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        console.error("Failed to parse saved state", e);
-      }
-    }
-    return {
+    const savedVersion = localStorage.getItem('cgpa_calc_version');
+    
+    // Default initial state
+    const defaultState: AppState = {
       mode: Mode.GPA,
       semesters: INITIAL_SEMESTERS,
       activeSemesterId: '1.1'
     };
+
+    if (saved && savedVersion === APP_VERSION) {
+      try {
+        const parsed = JSON.parse(saved);
+        // Ensure structure is valid before returning
+        if (parsed.semesters && parsed.activeSemesterId) {
+          return parsed;
+        }
+      } catch (e) {
+        console.error("Failed to parse saved state", e);
+      }
+    }
+    
+    // Clear storage if version mismatch to avoid curriculum conflicts
+    localStorage.removeItem('cgpa_calc_state');
+    return defaultState;
   });
 
-  // Persist state
+  // Persist state and version
   useEffect(() => {
     localStorage.setItem('cgpa_calc_state', JSON.stringify(state));
+    localStorage.setItem('cgpa_calc_version', APP_VERSION);
   }, [state]);
 
   // Persist theme
@@ -80,7 +96,7 @@ const App: React.FC = () => {
       let securedCredits = 0;
 
       active.courses.forEach(c => {
-        if (c.grade) {
+        if (c.grade && GRADE_POINTS[c.grade] !== undefined) {
           totalPoints += (GRADE_POINTS[c.grade] * c.credits);
           securedCredits += c.credits;
         }
@@ -119,7 +135,7 @@ const App: React.FC = () => {
   }, [state]);
 
   return (
-    <div className="min-h-screen flex flex-col transition-colors duration-300">
+    <div className="min-h-screen flex flex-col transition-colors duration-300 selection:bg-[#0d8181] selection:text-white">
       <Header 
         darkMode={darkMode} 
         toggleDarkMode={() => setDarkMode(!darkMode)} 

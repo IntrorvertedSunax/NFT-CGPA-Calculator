@@ -3,23 +3,48 @@ import React from 'react';
 
 const Footer: React.FC = () => {
   return (
-    <footer className="mt-12 py-8 border-t border-slate-200 dark:border-slate-800 text-center">
-      <p className="text-slate-500 dark:text-slate-400 text-sm flex items-center justify-center gap-2">
-        Developed by <span className="font-bold text-teal-600 dark:text-teal-400">Introverted Sunax</span>
-        <a 
-          href="https://linkedin.com" 
-          target="_blank" 
+    <footer className="mt-2 sm:mt-8 py-2 sm:py-5 border-t border-slate-200 dark:border-slate-800">
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-2 sm:gap-4">
+        {/* Left Side: Developer Info */}
+        <div className="text-center sm:text-left">
+          <p className="text-slate-600 dark:text-slate-300 text-[11px] sm:text-sm font-medium leading-tight">
+            Developed by{' '}
+            <span className="font-bold text-[#7c5dfa] dark:text-[#a29bfe]">
+              Introverted Sunax
+            </span>
+          </p>
+          <p className="text-[8px] sm:text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-0.5">
+            GSTU • EEE
+          </p>
+        </div>
+
+        {/* Right Side: Message Me Button */}
+        <a
+          href="https://www.linkedin.com/in/introvertedsunax/"
+          target="_blank"
           rel="noopener noreferrer"
-          className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-blue-600 transition-colors"
+          className="group flex items-center gap-2 px-3.5 py-1 sm:px-4 sm:py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-full shadow-sm hover:shadow-md hover:border-slate-300 dark:hover:border-slate-600 transition-all duration-300"
         >
-          <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
-            <path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/>
-          </svg>
+          <div className="flex items-center justify-center w-3 h-3 sm:w-3.5 sm:h-3.5 text-slate-400 group-hover:text-[#0d8181] group-hover:scale-110 transition-all duration-300">
+            <svg 
+              xmlns="http://www.w3.org/2000/svg" 
+              viewBox="0 0 24 24" 
+              fill="none" 
+              stroke="currentColor" 
+              strokeWidth="2.5" 
+              strokeLinecap="round" 
+              strokeLinejoin="round" 
+              className="w-full h-full"
+            >
+              <line x1="22" y1="2" x2="11" y2="13"></line>
+              <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+            </svg>
+          </div>
+          <span className="text-[10px] sm:text-xs font-bold text-slate-700 dark:text-slate-200">
+            Message Me
+          </span>
         </a>
-      </p>
-      <p className="text-[10px] text-slate-400 mt-2 uppercase tracking-tighter">
-        © 2024 Jashore University of Science and Technology
-      </p>
+      </div>
     </footer>
   );
 };

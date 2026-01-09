@@ -1,4 +1,5 @@
 
+// Fixed the corrupted import statement and removed redundant local type declarations that were causing conflicts
 import React, { useState, useEffect, useMemo } from 'react';
 import Header from './components/Header';
 import Scorecard from './components/Scorecard';
@@ -139,7 +140,7 @@ const App: React.FC = () => {
         toggleDarkMode={() => setDarkMode(!darkMode)} 
       />
       
-      <main className="flex-grow max-w-4xl w-full mx-auto px-4 py-8">
+      <main className="flex-grow max-w-4xl w-full mx-auto px-4 pt-4 pb-2 sm:py-8">
         <Scorecard 
           label={state.mode === Mode.GPA ? `SEMESTER ${state.activeSemesterId} GPA` : 'OVERALL CGPA'}
           score={stats.score}

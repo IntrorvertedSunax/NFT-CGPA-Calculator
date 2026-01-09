@@ -6,6 +6,7 @@ import Scorecard from './components/Scorecard';
 import ModeSwitcher from './components/ModeSwitcher';
 import GPAMode from './components/GPAMode';
 import CGPAMode from './components/CGPAMode';
+import DownloadPDF from './components/DownloadPDF';
 import Footer from './components/Footer';
 import { Mode, AppState, Grade } from './types';
 import { INITIAL_SEMESTERS, GRADE_POINTS } from './constants';
@@ -78,6 +79,19 @@ const App: React.FC = () => {
     }));
   };
 
+  const resetSemesterGrades = (semId: string) => {
+    setState(prev => ({
+      ...prev,
+      semesters: prev.semesters.map(s => {
+        if (s.id !== semId) return s;
+        return {
+          ...s,
+          courses: s.courses.map(c => ({ ...c, grade: '' as Grade }))
+        };
+      })
+    }));
+  };
+
   const updateManual = (id: string, credits: number, gpa: number) => {
     setState(prev => ({
       ...prev,
@@ -133,6 +147,10 @@ const App: React.FC = () => {
     }
   }, [state]);
 
+  const activeSemester = useMemo(() => 
+    state.semesters.find(s => s.id === state.activeSemesterId)
+  , [state.semesters, state.activeSemesterId]);
+
   return (
     <div className="min-h-screen flex flex-col transition-colors duration-300 selection:bg-[#0d8181] selection:text-white">
       <Header 
@@ -162,6 +180,7 @@ const App: React.FC = () => {
               activeId={state.activeSemesterId}
               setActiveId={(id) => setState(prev => ({ ...prev, activeSemesterId: id }))}
               updateGrade={updateGrade}
+              resetGrades={resetSemesterGrades}
             />
           ) : (
             <CGPAMode 
@@ -170,6 +189,13 @@ const App: React.FC = () => {
             />
           )}
         </div>
+
+        <DownloadPDF 
+          mode={state.mode}
+          activeSemester={activeSemester}
+          semesters={state.semesters}
+          stats={stats}
+        />
 
         <Footer />
       </main>

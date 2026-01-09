@@ -61,21 +61,24 @@ const GPAMode: React.FC<GPAModeProps> = ({ semesters, activeId, setActiveId, upd
         </div>
       )}
 
-      <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 sm:p-8 shadow-sm border border-slate-100 dark:border-slate-700">
+      {/* Unified Container for Semester Selection & Course List */}
+      <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 sm:p-8 shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col">
+        {/* Header Section */}
         <div className="flex items-center gap-3 mb-6">
           <svg className="w-6 h-6 text-[#0d8181]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5z" />
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" />
           </svg>
-          <h3 className="text-lg font-bold text-[#104e5b] dark:text-slate-100">Select Semester</h3>
+          <h3 className="text-lg font-bold text-[#104e5b] dark:text-slate-100">Semester & Courses</h3>
         </div>
 
-        <div className="grid grid-cols-4 gap-4">
+        {/* Semester Selection Grid */}
+        <div className="grid grid-cols-4 gap-3 sm:gap-4 mb-8">
           {semesters.map((s) => (
             <button
               key={s.id}
               onClick={() => setActiveId(s.id)}
-              className={`py-4 rounded-xl font-bold text-sm transition-all duration-200 border-2 ${
+              className={`py-3.5 sm:py-4 rounded-xl font-bold text-xs sm:text-sm transition-all duration-200 border-2 ${
                 activeId === s.id
                   ? 'bg-[#f0f9f9] border-[#0d8181] text-[#0d8181] shadow-sm'
                   : 'bg-[#f1f5f9] border-transparent text-slate-600 hover:bg-[#e2e8f0] dark:bg-slate-700/50 dark:text-slate-400 dark:hover:bg-slate-700'
@@ -85,13 +88,11 @@ const GPAMode: React.FC<GPAModeProps> = ({ semesters, activeId, setActiveId, upd
             </button>
           ))}
         </div>
-      </div>
 
-      <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 sm:p-8 shadow-sm border border-slate-100 dark:border-slate-700 min-h-[300px] flex flex-col">
-        <h3 className="text-lg font-bold text-[#104e5b] dark:text-slate-100 mb-8 flex items-center gap-2">
-          Course Grade List
-        </h3>
+        {/* Divider */}
+        <div className="h-px w-full bg-slate-100 dark:bg-slate-700 mb-8" />
         
+        {/* Course Grade Selection Section */}
         {activeSemester && activeSemester.courses.length > 0 ? (
           <>
             <div className="space-y-4 flex-grow">
@@ -102,11 +103,11 @@ const GPAMode: React.FC<GPAModeProps> = ({ semesters, activeId, setActiveId, upd
                 >
                   <div className="flex-grow min-w-0">
                     <div className="flex flex-wrap items-center gap-2 mb-1">
-                      <span className="px-2 py-0.5 rounded-md bg-teal-100 dark:bg-teal-900/40 text-[9px] sm:text-[10px] font-black text-teal-700 dark:text-teal-400 whitespace-nowrap">
+                      <span className="px-2 py-0.5 rounded-md bg-slate-200 dark:bg-slate-700 text-[9px] sm:text-[10px] font-black text-slate-600 dark:text-slate-300 whitespace-nowrap">
                         {course.code}
                       </span>
-                      <span className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-tighter">
-                        {course.credits} Credits
+                      <span className="text-[10px] sm:text-[11px] font-black text-[#0d8181] dark:text-teal-400 uppercase tracking-tighter whitespace-nowrap">
+                        {course.credits.toFixed(1)} Credits
                       </span>
                     </div>
                     <h4 className="text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-200 break-words leading-tight">

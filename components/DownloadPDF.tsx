@@ -1,7 +1,6 @@
 
 import React, { useMemo, useState } from 'react';
-import { createPortal } from 'react-dom';
-import { Semester, Grade, Mode } from '../types';
+import { Semester, Mode } from '../types';
 import { GRADE_POINTS } from '../constants';
 
 interface DownloadPDFProps {
@@ -15,19 +14,74 @@ interface DownloadPDFProps {
   };
 }
 
-const DownloadPDF: React.FC<DownloadPDFProps> = ({ mode, activeSemester, semesters, stats }) => {
-  const [isPreparing, setIsPreparing] = useState(false);
+// Global declaration for html2pdf loaded via script tag
+declare var html2pdf: any;
 
-  const handleDownload = () => {
-    setIsPreparing(true);
-    // Short delay to ensure any state updates or portal renders are flushed
-    setTimeout(() => {
-      window.print();
-      setIsPreparing(false);
-    }, 100);
+const DownloadPDF: React.FC<DownloadPDFProps> = ({ mode, activeSemester, semesters, stats }) => {
+  const [isDownloading, setIsDownloading] = useState(false);
+  
+  const handleDownload = async () => {
+    if (isDownloading) return;
+    setIsDownloading(true);
+
+    const fileName = mode === Mode.GPA 
+      ? `GPA_Report_Semester_${activeSemester?.label || 'Result'}.pdf`
+      : 'CGPA_Summary_Report.pdf';
+
+    // Get the template element
+    const sourceElement = document.getElementById('pdf-template-container');
+    if (!sourceElement) {
+      setIsDownloading(false);
+      return;
+    }
+
+    // Create a clone to work with
+    const element = sourceElement.cloneNode(true) as HTMLElement;
+    element.style.display = 'block';
+    element.style.position = 'fixed';
+    element.style.left = '-10000px';
+    element.style.top = '0';
+    element.style.width = '800px';
+    element.style.opacity = '1';
+    element.style.visibility = 'visible';
+    element.style.zIndex = '-1';
+    
+    // Append to body temporarily so html2canvas can "see" it properly
+    document.body.appendChild(element);
+
+    const opt = {
+      margin: 0,
+      filename: fileName,
+      image: { type: 'jpeg', quality: 1.0 },
+      html2canvas: { 
+        scale: 2, 
+        useCORS: true, 
+        logging: false,
+        backgroundColor: '#ffffff',
+        width: 800,
+        height: element.offsetHeight || 1120, // Approx A4 height if zero
+        windowWidth: 800,
+        y: 0,
+        x: 0
+      },
+      jsPDF: { unit: 'px', format: [800, element.offsetHeight || 1120], orientation: 'portrait' }
+    };
+
+    try {
+      // Give browser a moment to render the newly appended element
+      await new Promise(resolve => setTimeout(resolve, 300));
+      await html2pdf().from(element).set(opt).save();
+    } catch (err) {
+      console.error('PDF generation error:', err);
+    } finally {
+      // Cleanup
+      if (element.parentNode) {
+        document.body.removeChild(element);
+      }
+      setIsDownloading(false);
+    }
   };
 
-  // Determine if the button should be active (at least one grade selected)
   const isActive = useMemo(() => {
     if (mode === Mode.GPA) {
       return activeSemester?.courses.some(c => c.grade !== '') || false;
@@ -36,7 +90,7 @@ const DownloadPDF: React.FC<DownloadPDFProps> = ({ mode, activeSemester, semeste
     }
   }, [mode, activeSemester, semesters]);
 
-  const getReportSummary = () => {
+  const summary = useMemo(() => {
     if (mode === Mode.GPA && activeSemester) {
       const attemptedCourses = activeSemester.courses.filter(c => c.grade !== '');
       const creditAttempted = attemptedCourses.reduce((acc, c) => acc + c.credits, 0);
@@ -47,200 +101,30 @@ const DownloadPDF: React.FC<DownloadPDFProps> = ({ mode, activeSemester, semeste
         attempted: creditAttempted.toFixed(2),
         secured: stats.secured.toFixed(2),
         points: pointsSecured.toFixed(2),
-        score: stats.score
       };
     }
     return null;
-  };
-
-  const summary = getReportSummary();
-
-  // The Print Template Component
-  const PrintTemplate = (
-    <div id="print-report-root" className="fixed inset-0 bg-white z-[9999] hidden print:block text-black font-sans p-0 m-0">
-      <style>{`
-        @media screen {
-          #print-report-root { display: none !important; }
-        }
-        @media print {
-          /* Hide everything except our portal root */
-          body > *:not(#print-report-root) { display: none !important; }
-          #root { display: none !important; }
-          
-          #print-report-root { 
-            display: block !important; 
-            position: relative !important;
-            width: 100% !important;
-            height: auto !important;
-            background: white !important;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-          }
-
-          @page {
-            margin: 1.5cm;
-            size: A4;
-          }
-
-          .print-header { text-align: center; margin-bottom: 3rem; }
-          .print-title { font-size: 2.5rem; font-weight: 800; color: #1e293b; margin-bottom: 0.5rem; }
-          .print-subtitle { font-size: 1.25rem; color: #64748b; }
-          
-          .report-meta { margin-bottom: 2rem; border-bottom: 2px solid #f1f5f9; padding-bottom: 1rem; }
-          .report-meta h2 { font-size: 1.5rem; font-weight: 700; color: #334155; }
-
-          table { width: 100%; border-collapse: collapse; margin-bottom: 3rem; }
-          th { background-color: #4a3aff !important; color: white !important; font-weight: 700; padding: 0.75rem 1rem; text-align: left; }
-          td { padding: 0.75rem 1rem; border-bottom: 1px solid #f1f5f9; color: #475569; font-size: 0.875rem; }
-          
-          .summary-card {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background-color: #f0f4ff !important;
-            border-radius: 2rem;
-            padding: 2.5rem;
-            margin-left: auto;
-            width: fit-content;
-            min-width: 450px;
-          }
-          
-          .summary-stats { display: flex; flex-direction: column; gap: 0.5rem; }
-          .summary-row { display: flex; justify-content: space-between; gap: 3rem; font-weight: 700; color: #475569; }
-          .summary-row span:last-child { color: #1e293b; }
-
-          .score-display { text-align: right; display: flex; flex-direction: column; }
-          .score-label { font-size: 1.25rem; font-weight: 900; color: #64748b; letter-spacing: 0.1em; text-transform: uppercase; }
-          .score-value { font-size: 5rem; font-weight: 900; color: #4a3aff !important; line-height: 1; }
-
-          .print-footer {
-            position: fixed;
-            bottom: 1rem;
-            left: 0;
-            right: 0;
-            border-top: 1px solid #f1f5f9;
-            padding-top: 0.5rem;
-            display: flex;
-            justify-content: space-between;
-            font-size: 0.75rem;
-            color: #94a3b8;
-            font-weight: 700;
-            text-transform: uppercase;
-          }
-        }
-      `}</style>
-      
-      <div className="print-content p-8">
-        <div className="print-header">
-          <h1 className="print-title">GPA Report</h1>
-          <p className="print-subtitle">Department of Nutrition and Food Technology</p>
-        </div>
-
-        <div className="report-meta">
-          <h2>
-            {mode === Mode.GPA ? `Semester: ${activeSemester?.label}` : 'CGPA Summary Report'}
-          </h2>
-        </div>
-
-        <table>
-          <thead>
-            <tr>
-              <th>Course Code</th>
-              <th>Course Name</th>
-              <th>Credits</th>
-              <th>Grade</th>
-              <th>Points</th>
-            </tr>
-          </thead>
-          <tbody>
-            {mode === Mode.GPA && activeSemester?.courses.map((course) => (
-              <tr key={course.id}>
-                <td style={{ fontWeight: 600 }}>{course.code}</td>
-                <td>{course.title}</td>
-                <td>{course.credits}</td>
-                <td style={{ fontWeight: 800 }}>{course.grade || 'N/A'}</td>
-                <td>
-                  {course.grade ? (GRADE_POINTS[course.grade] * course.credits).toFixed(2) : 'N/A'}
-                </td>
-              </tr>
-            ))}
-            {mode === Mode.CGPA && semesters.filter(s => s.manualCredits && s.manualCredits > 0).map((s) => (
-              <tr key={s.id}>
-                <td style={{ fontWeight: 800 }}>Semester {s.label}</td>
-                <td style={{ fontStyle: 'italic', color: '#94a3b8' }}>Manual Record</td>
-                <td>{s.manualCredits}</td>
-                <td style={{ fontWeight: 800 }}>{s.manualGPA?.toFixed(2)}</td>
-                <td>{(s.manualCredits * (s.manualGPA || 0)).toFixed(2)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-
-        <div className="summary-card">
-          <div className="summary-stats">
-            {summary ? (
-              <>
-                <div className="summary-row">
-                  <span>Credit Offered:</span>
-                  <span>{summary.offered}</span>
-                </div>
-                <div className="summary-row">
-                  <span>Credit Attempted:</span>
-                  <span>{summary.attempted}</span>
-                </div>
-                <div className="summary-row">
-                  <span>Credit Secured:</span>
-                  <span>{summary.secured}</span>
-                </div>
-                <div className="summary-row">
-                  <span>Points Secured:</span>
-                  <span>{summary.points}</span>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="summary-row">
-                  <span>Total Credits:</span>
-                  <span>{stats.offered.toFixed(2)}</span>
-                </div>
-                <div className="summary-row">
-                  <span>Semesters Counted:</span>
-                  <span>{stats.secured}</span>
-                </div>
-              </>
-            )}
-          </div>
-
-          <div className="score-display">
-            <span className="score-label">{mode}</span>
-            <span className="score-value">{stats.score}</span>
-          </div>
-        </div>
-
-        <div className="print-footer">
-          <span>Generated by Interactive GPA & CGPA Calculator</span>
-          <span>Page 1 of 1</span>
-        </div>
-      </div>
-    </div>
-  );
+  }, [mode, activeSemester, stats.secured]);
 
   return (
     <>
-      <div className="mt-8 mb-4 flex flex-col items-center gap-2">
+      <div className="mt-8 mb-4 flex justify-center">
         <button
           onClick={handleDownload}
-          disabled={!isActive || isPreparing}
-          className={`flex items-center gap-3 px-8 py-3.5 font-bold text-sm rounded-2xl shadow-lg transition-all duration-300 active:scale-95 group ${
-            isActive && !isPreparing
+          disabled={!isActive || isDownloading}
+          className={`flex items-center gap-3 px-10 py-4 font-bold text-sm rounded-2xl shadow-lg transition-all duration-300 active:scale-95 group ${
+            isActive && !isDownloading
               ? 'bg-[#0d8181] hover:bg-[#0a6c6c] text-white shadow-teal-900/10 cursor-pointer' 
               : 'bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-600 shadow-none cursor-not-allowed grayscale opacity-60'
           }`}
         >
-          {isPreparing ? (
-            <div className="flex items-center gap-3">
-              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              Preparing...
+          {isDownloading ? (
+            <div className="flex items-center gap-2">
+              <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              Downloading...
             </div>
           ) : (
             <>
@@ -253,8 +137,118 @@ const DownloadPDF: React.FC<DownloadPDFProps> = ({ mode, activeSemester, semeste
         </button>
       </div>
 
-      {/* Render the print template into the body using a Portal */}
-      {isActive && createPortal(PrintTemplate, document.body)}
+      {/* 
+          Template used for PDF generation. 
+          It is kept in the DOM as a hidden "source" element.
+          During download, we clone it and ensure it's rendered by the browser.
+      */}
+      <div 
+        id="pdf-template-container"
+        style={{ 
+          display: 'none', 
+          width: '800px', 
+          background: 'white',
+          color: 'black',
+        }}
+      >
+        <div style={{ padding: '60px', fontFamily: 'Inter, sans-serif', width: '800px', boxSizing: 'border-box' }}>
+          {/* Header */}
+          <div style={{ textAlign: 'center', marginBottom: '50px' }}>
+            <h1 style={{ fontSize: '48px', fontWeight: 500, color: '#1e293b', marginBottom: '10px', marginTop: 0 }}>GPA Report</h1>
+            <p style={{ fontSize: '20px', color: '#64748b', marginTop: 0 }}>Department of Nutrition and Food Technology</p>
+          </div>
+
+          {/* Semester Title */}
+          <div style={{ marginBottom: '32px', borderLeft: '4px solid #cbd5e1', paddingLeft: '16px' }}>
+            <h2 style={{ fontSize: '28px', fontWeight: 400, color: '#1e293b', margin: 0 }}>
+              {mode === Mode.GPA ? `Semester: ${activeSemester?.label}` : 'CGPA Summary Report'}
+            </h2>
+          </div>
+
+          {/* Results Table */}
+          <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '20px' }}>
+            <thead>
+              <tr style={{ backgroundColor: '#4a3aff', color: 'white' }}>
+                <th style={{ padding: '16px', textAlign: 'left', fontWeight: 'bold', fontSize: '14px', color: 'white' }}>Course Code</th>
+                <th style={{ padding: '16px', textAlign: 'left', fontWeight: 'bold', fontSize: '14px', color: 'white' }}>Course Name</th>
+                <th style={{ padding: '16px', textAlign: 'center', fontWeight: 'bold', fontSize: '14px', color: 'white' }}>Credits</th>
+                <th style={{ padding: '16px', textAlign: 'center', fontWeight: 'bold', fontSize: '14px', color: 'white' }}>Grade</th>
+                <th style={{ padding: '16px', textAlign: 'center', fontWeight: 'bold', fontSize: '14px', color: 'white' }}>Points</th>
+              </tr>
+            </thead>
+            <tbody>
+              {mode === Mode.GPA && activeSemester?.courses.map((course) => (
+                <tr key={course.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                  <td style={{ padding: '16px', color: '#64748b', fontSize: '13px' }}>{course.code}</td>
+                  <td style={{ padding: '16px', color: '#475569', fontSize: '13px' }}>{course.title}</td>
+                  <td style={{ padding: '16px', textAlign: 'center', color: '#475569', fontSize: '13px' }}>{course.credits}</td>
+                  <td style={{ padding: '16px', textAlign: 'center', fontWeight: 'bold', color: '#1e293b', fontSize: '13px' }}>{course.grade || 'N/A'}</td>
+                  <td style={{ padding: '16px', textAlign: 'center', color: '#64748b', fontSize: '13px' }}>
+                    {course.grade ? (GRADE_POINTS[course.grade] * course.credits).toFixed(2) : 'N/A'}
+                  </td>
+                </tr>
+              ))}
+              {mode === Mode.CGPA && semesters.filter(s => (s.manualCredits || 0) > 0).map((s) => (
+                <tr key={s.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                  <td style={{ padding: '16px', color: '#1e293b', fontWeight: 'bold', fontSize: '13px' }}>Semester {s.label}</td>
+                  <td style={{ padding: '16px', color: '#94a3b8', fontStyle: 'italic', fontSize: '13px' }}>Overall Semester Summary</td>
+                  <td style={{ padding: '16px', textAlign: 'center', color: '#475569', fontSize: '13px' }}>{s.manualCredits}</td>
+                  <td style={{ padding: '16px', textAlign: 'center', fontWeight: 'bold', color: '#1e293b', fontSize: '13px' }}>{s.manualGPA?.toFixed(2)}</td>
+                  <td style={{ padding: '16px', textAlign: 'center', color: '#475569', fontSize: '13px' }}>{(s.manualCredits! * s.manualGPA!).toFixed(2)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          {/* Summary Card */}
+          <div style={{ backgroundColor: '#f1f5f9', borderRadius: '20px', padding: '40px', marginTop: '50px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {summary ? (
+                <>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', width: '250px' }}>
+                    <span style={{ color: '#64748b' }}>Credit Offered:</span>
+                    <span style={{ fontWeight: 'bold', color: '#1e293b' }}>{summary.offered}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', width: '250px' }}>
+                    <span style={{ color: '#64748b' }}>Credit Attempted:</span>
+                    <span style={{ fontWeight: 'bold', color: '#1e293b' }}>{summary.attempted}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', width: '250px' }}>
+                    <span style={{ color: '#64748b' }}>Credit Secured:</span>
+                    <span style={{ fontWeight: 'bold', color: '#1e293b' }}>{summary.secured}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', width: '250px' }}>
+                    <span style={{ color: '#64748b' }}>Points Secured:</span>
+                    <span style={{ fontWeight: 'bold', color: '#1e293b' }}>{summary.points}</span>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', width: '250px' }}>
+                    <span style={{ color: '#64748b' }}>Total Credits:</span>
+                    <span style={{ fontWeight: 'bold', color: '#1e293b' }}>{stats.offered.toFixed(2)}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', width: '250px' }}>
+                    <span style={{ color: '#64748b' }}>Semesters Counted:</span>
+                    <span style={{ fontWeight: 'bold', color: '#1e293b' }}>{stats.secured}</span>
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div style={{ textAlign: 'right' }}>
+              <span style={{ color: '#64748b', fontWeight: 'bold', fontSize: '18px', textTransform: 'uppercase', display: 'block' }}>{mode}</span>
+              <span style={{ color: '#4a3aff', fontSize: '72px', fontWeight: 800, lineHeight: 1 }}>{stats.score}</span>
+            </div>
+          </div>
+
+          {/* Footer Info */}
+          <div style={{ marginTop: '80px', paddingTop: '30px', borderTop: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', color: '#94a3b8', fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+            <span>Generated by JUST Nutrition Calculator</span>
+            <span>Ref: NFT-PDF-GEN-VERIFIED</span>
+          </div>
+        </div>
+      </div>
     </>
   );
 };

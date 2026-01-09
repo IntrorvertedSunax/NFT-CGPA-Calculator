@@ -159,54 +159,56 @@ const App: React.FC = () => {
   }, [state.mode, state.activeSemesterId]);
 
   return (
-    <div className="min-h-screen flex flex-col transition-colors duration-300 selection:bg-[#0d8181] selection:text-white">
+    <div className="min-h-screen flex flex-col transition-colors duration-300 selection:bg-[#0d8181] selection:text-white bg-slate-50 dark:bg-slate-900">
       <Header 
         darkMode={darkMode} 
         toggleDarkMode={() => setDarkMode(!darkMode)} 
       />
       
-      <main className="flex-grow max-w-4xl w-full mx-auto px-4 pt-4 pb-2 sm:py-8">
-        <Scorecard 
-          label={scorecardLabel}
-          score={stats.score}
-          offered={stats.offered}
-          secured={stats.secured}
-          offeredLabel={stats.offeredLabel}
-          securedLabel={stats.securedLabel}
-        />
+      <main className="flex-grow max-w-4xl w-full mx-auto px-4 pt-6 pb-2 sm:py-10">
+        <div className="space-y-8">
+          <Scorecard 
+            label={scorecardLabel}
+            score={stats.score}
+            offered={stats.offered}
+            secured={stats.secured}
+            offeredLabel={stats.offeredLabel}
+            securedLabel={stats.securedLabel}
+          />
 
-        <ModeSwitcher 
-          mode={state.mode} 
-          setMode={(m) => setState(prev => ({ ...prev, mode: m }))} 
-        />
+          <ModeSwitcher 
+            mode={state.mode} 
+            setMode={(m) => setState(prev => ({ ...prev, mode: m }))} 
+          />
 
-        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-          {state.mode === Mode.GPA ? (
-            <GPAMode 
-              semesters={state.semesters}
-              activeId={state.activeSemesterId}
-              setActiveId={(id) => setState(prev => ({ ...prev, activeSemesterId: id }))}
-              updateGrade={updateGrade}
-              resetGrades={resetSemesterGrades}
-            />
-          ) : (
-            <CGPAMode 
-              semesters={state.semesters}
-              updateManual={updateManual}
-              resetAllManual={resetAllManual}
-            />
-          )}
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+            {state.mode === Mode.GPA ? (
+              <GPAMode 
+                semesters={state.semesters}
+                activeId={state.activeSemesterId}
+                setActiveId={(id) => setState(prev => ({ ...prev, activeSemesterId: id }))}
+                updateGrade={updateGrade}
+                resetGrades={resetSemesterGrades}
+              />
+            ) : (
+              <CGPAMode 
+                semesters={state.semesters}
+                updateManual={updateManual}
+                resetAllManual={resetAllManual}
+              />
+            )}
+          </div>
+
+          <DownloadPDF 
+            mode={state.mode}
+            activeSemesterId={state.activeSemesterId}
+            semesters={state.semesters}
+            stats={stats}
+          />
         </div>
-
-        <DownloadPDF 
-          mode={state.mode}
-          activeSemesterId={state.activeSemesterId}
-          semesters={state.semesters}
-          stats={stats}
-        />
-
-        <Footer />
       </main>
+
+      <Footer />
     </div>
   );
 };

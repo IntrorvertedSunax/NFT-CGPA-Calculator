@@ -2,19 +2,19 @@ import React from 'react';
 
 const Footer: React.FC = () => {
   return (
-    <footer className="mt-8 border-t border-slate-200/60 dark:border-slate-800/60">
-      <div className="max-w-7xl mx-auto h-20 flex items-center justify-between px-4 sm:px-8">
+    <footer className="w-full mt-12 bg-slate-100/50 dark:bg-slate-950/30 border-t border-slate-200 dark:border-slate-800/60 backdrop-blur-sm">
+      <div className="max-w-4xl mx-auto h-24 flex items-center justify-between px-6 sm:px-8">
         {/* Left Side: Developer Info */}
         <div className="flex flex-col items-start">
-          <p className="text-slate-500 dark:text-slate-400 text-xs sm:text-sm font-medium">
+          <p className="text-slate-500 dark:text-slate-400 text-xs sm:text-sm font-medium flex items-center gap-1.5">
             Developed by{' '}
-            <span className="font-bold text-[#0d8181] dark:text-teal-400">
+            <span className="font-bold text-[#0d8181] dark:text-teal-400 transition-colors hover:text-teal-600 dark:hover:text-teal-300 cursor-default">
               Introverted Sunax
             </span>
           </p>
-          <div className="flex items-center gap-2 mt-0.5">
-            <span className="w-1 h-1 rounded-full bg-slate-300 dark:bg-slate-700 hidden sm:block"></span>
-            <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-[0.15em]">
+          <div className="flex items-center gap-2 mt-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-teal-500/40 dark:bg-teal-400/20"></span>
+            <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em]">
               EEE GSTU
             </p>
           </div>
@@ -25,16 +25,16 @@ const Footer: React.FC = () => {
           href="https://www.linkedin.com/in/hossain-sumon/"
           target="_blank"
           rel="noopener noreferrer"
-          className="group flex items-center gap-2 sm:gap-3 px-4 sm:px-6 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800/50 dark:hover:bg-slate-800 border border-transparent hover:border-slate-200 dark:hover:border-slate-700 rounded-xl sm:rounded-2xl transition-all duration-300 active:scale-95"
+          className="group flex items-center gap-2.5 px-5 py-2.5 bg-white dark:bg-slate-900 hover:bg-[#0d8181] dark:hover:bg-teal-600 border border-slate-200 dark:border-slate-800 rounded-2xl transition-all duration-300 active:scale-95 shadow-sm hover:shadow-teal-500/20"
           aria-label="Message the developer on LinkedIn"
         >
-          <div className="flex items-center justify-center w-4 h-4 sm:w-5 sm:h-5 text-slate-500 group-hover:text-[#0d8181] dark:group-hover:text-teal-400 transition-colors duration-300">
+          <div className="flex items-center justify-center w-4 h-4 text-slate-500 group-hover:text-white transition-colors duration-300">
             <svg 
               xmlns="http://www.w3.org/2000/svg" 
               viewBox="0 0 24 24" 
               fill="none" 
               stroke="currentColor" 
-              strokeWidth="2" 
+              strokeWidth="2.5" 
               strokeLinecap="round" 
               strokeLinejoin="round" 
               className="w-full h-full transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform duration-300"
@@ -43,7 +43,7 @@ const Footer: React.FC = () => {
               <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
             </svg>
           </div>
-          <span className="text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-200">
+          <span className="text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-200 group-hover:text-white transition-colors">
             Message Me
           </span>
         </a>
